@@ -18,7 +18,7 @@ import (
 func TestTodos(t *testing.T) {
 	os.Remove("./test.db")
 	assert := assert.New(t)
-	ah := MakeHandler()
+	ah := MakeHandler("./test.db")
 	defer ah.Close()
 
 	ts := httptest.NewServer(ah)
