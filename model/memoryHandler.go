@@ -8,7 +8,7 @@ type memoryHandler struct {
 }
 
 // memoryHandler의 메서드
-func (m *memoryHandler) GetTodos() []*Todo {
+func (m *memoryHandler) GetTodos(sessionId string) []*Todo {
 	list := []*Todo{}
 	for _, v := range m.todoMap {
 		// map의 인덱스 만큼 반복
@@ -19,7 +19,7 @@ func (m *memoryHandler) GetTodos() []*Todo {
 	return list
 }
 
-func (m *memoryHandler) AddTodo(name string) *Todo {
+func (m *memoryHandler) AddTodo(sessionId string, name string) *Todo {
 	id := len(m.todoMap) + 1                   // map의 갯수만큼 id
 	todo := &Todo{id, name, false, time.Now()} // 포인터형 구조체 Todo를 생성
 	m.todoMap[id] = todo                       // todo의 데이터를 맵에 넣음

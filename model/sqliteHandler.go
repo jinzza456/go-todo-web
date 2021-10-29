@@ -2,7 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"os"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -12,9 +11,10 @@ type sqliteHandler struct {
 	db *sql.DB
 }
 
-func (s *sqliteHandler) GetTodos() []*Todo {
+func (s *sqliteHandler) GetTodos(sessionId string) []*Todo {
+	// 인자로 sessionID 를 받음
 	todos := []*Todo{} // 반환값을 가지고 있을 리스트
-	rows, err := s.db.Query("SELECT id, name, completed, createdAt FROM todos")
+	rows, err := s.db.Query("SELECT id, name, completed, createdAt FROM todos WHERE sessionId=?", sessionId)
 	//SELECT 로 데이터를 가져오고 , FROM 어디서 가져올 껀지
 	//id, name, completed를 todos라는 테이블에서 가져옴
 	if err != nil {
@@ -31,17 +31,18 @@ func (s *sqliteHandler) GetTodos() []*Todo {
 	return todos
 }
 
-func (s *sqliteHandler) AddTodo(name string) *Todo {
-	stmt, err := s.db.Prepare("INSERT INTO todos (name, completed, createdAt) VALUES (?, ?, datetime('now'))")
+func (s *sqliteHandler) AddTodo(name string, sessionId string) *Todo {
+	// 인자로 sessionID 도 같이 받음
+	stmt, err := s.db.Prepare("INSERT INTO todos (sessionId, name, completed, createdAt) VALUES (?, ?, ?, datetime('now'))")
 	//Prepare로 스테이트먼트를 만든다.
 	//INSERT INTO todos: todos 테이블에 값을 추가한다.
-	//(name, completed, createdAt) : 추가할 컬럼 값
-	//VALUES (?, ?, datetime('now')) : 추가할 벨류 값
-	//datetime('now') : sqlite의 내장함수
+	//컬럼 값에 sessionID 추가
+	//Value값  ? 추가
 	if err != nil {
 		panic(err)
 	}
-	rst, err := stmt.Exec(name, false)
+	rst, err := stmt.Exec(sessionId, name, false)
+	//sessionID 를 추가해줌
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +100,6 @@ func (s *sqliteHandler) Close() {
 }
 
 func newSqliteHandler(filepath string) DBHandler {
-	os.Remove("./test.db")
 	database, err := sql.Open("sqlite3", filepath)
 	if err != nil {
 		panic(err)
@@ -107,13 +107,16 @@ func newSqliteHandler(filepath string) DBHandler {
 	statement, _ := database.Prepare(
 		`CREATE TABLE IF NOT EXISTS todos (
 			id        INTEGER  PRIMARY KEY AUTOINCREMENT, 
-			sessionID STRING,
+			sessionId STRING,
 			name      TEXT,
 			completed BOOLEAN,
 			createdAt DATETIME
-		)`)
-	// 테이블을 만드는 쿼리문
-	// KEY AUTOINCREMENT: DB안에서 자동으로 값을 증가시킴
+		);
+		CREATE INDEX IF NOT EXISTS sessionIdIndexOnTodos ON todos (
+			sessionId ASC
+			)`)
+	// 테이블에 sessionID 를 추가
+	// GET 할때 빠른 속도를 위해 바이너리 서치 트리(BST) 키 인덱스를 만들어준다.
 	statement.Exec()
 	return &sqliteHandler{db: database}
 }

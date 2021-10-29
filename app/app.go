@@ -23,7 +23,8 @@ type AppHandler struct {
 	db model.DBHandler
 }
 
-func getSessionID(r *http.Request) string {
+var getSessionID = func(r *http.Request) string {
+	//펑션 포인터를 갖는 변수
 	session, err := store.Get(r, "session")
 	if err != nil {
 		return "" // err가 있을때 빈 문자열 반환
@@ -41,15 +42,16 @@ func (a *AppHandler) indexHandler(w http.ResponseWriter, r *http.Request) {
 
 // 리스트를 받아서 제이슨형태로 넘겨줌
 func (a *AppHandler) getTodoListHandler(w http.ResponseWriter, r *http.Request) {
-
-	list := a.db.GetTodos() // model 패키지에서 불러옴
+	sessionId := getSessionID(r)
+	list := a.db.GetTodos(sessionId) // model 패키지에서 불러옴
 	rd.JSON(w, http.StatusOK, list)
 	// json형태로 반환
 }
 
 func (a *AppHandler) addTodoHandler(w http.ResponseWriter, r *http.Request) {
+	sessionId := getSessionID(r)
 	name := r.FormValue("name") // 리퀘스트의 키로 name을 읽음
-	todo := a.db.AddTodo(name)
+	todo := a.db.AddTodo(name, sessionId)
 
 	rd.JSON(w, http.StatusCreated, todo) // json형태로 반환
 
@@ -88,7 +90,7 @@ func (a *AppHandler) Close() {
 
 // signin 여부 확인
 func CheckSignin(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
-	if strings.Contains(r.URL.Path, "/signin.html") ||
+	if strings.Contains(r.URL.Path, "/signin") ||
 		strings.Contains(r.URL.Path, "/auth") {
 		// 요청한 url이 /signin.html || /auth 일 경우
 		next(w, r)
@@ -98,6 +100,7 @@ func CheckSignin(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) 
 	sessionID := getSessionID(r)
 	if sessionID != "" {
 		next(w, r) //유저가 signin 되있으면 next로
+		return
 	}
 	http.Redirect(w, r, "/signin.html", http.StatusTemporaryRedirect)
 	// signin이 안됐으면 리다이렉트
@@ -120,7 +123,7 @@ func MakeHandler(filepath string) *AppHandler {
 	r.HandleFunc("/todos", a.getTodoListHandler).Methods("GET")
 	r.HandleFunc("/todos", a.addTodoHandler).Methods("POST")
 	r.HandleFunc("/todos/{id:[0-9]+}", a.removeTodoHandler).Methods("DELETE")
-	r.HandleFunc("complete-todo/{id:[0-9]+", a.completeTodoHandler)
+	r.HandleFunc("complete-todo/{id:[0-9]+", a.completeTodoHandler).Methods("GET")
 	r.HandleFunc("/auth/google/login", googleLoginHandler)
 	r.HandleFunc("/auth/google/callback", googleAuthCallback)
 	r.HandleFunc("/", a.indexHandler)
